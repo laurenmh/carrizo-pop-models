@@ -1,18 +1,16 @@
 require(gdata)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+library(tidyverse)
 library(minpack.lm)
 
-## Read in data and select relevant columns #
+# Data import and tidying -------------------------------------------------
 
 ## 2015 greenhouse germinants
-gh2015 <- read.xls("Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=4, header=T, na.strings="#N/A!") %>%
+gh2015 <- read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=4, header=T, na.strings="#N/A!") %>%
   tbl_df() %>%
   filter(N.trt == 0) %>%
   select(Pasture, Site, Plot.ID, Sample.ID, Trophic.trt, Eng.trt, Precip.trt,  W.trt, tGrass, tForb)
 
-gh2016 <- read.xls("Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=3, header=T, na.strings="#N/A!") %>%
+gh2016 <- read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=3, header=T, na.strings="#N/A!") %>%
   tbl_df() %>%
   filter(Season == 0) %>%
   select(Pasture, Site, Plot, Sample, Troph, Eng, Precip, Water, Grass.all, Forb.all)
@@ -29,14 +27,18 @@ dat <- left_join(gh2015, gh2016) %>%
   filter(Water == 1) %>%
   mutate(trt = interaction(Precip, Troph)) 
 
+
+# Preliminary visuals -----------------------------------------------------
+
 ggplot(dat, aes(x=log(Er2015 + 1), y= log(Er2016 +1),color = as.factor(Precip))) + geom_point() + facet_grid(Troph~Eng)
 ggplot(dat, aes(x=log(Ho2015 + 1), y= log(Ho2016 +1), color = as.factor(Precip))) + geom_point() + facet_grid(Troph~Eng)
 ggplot(dat, aes(x=(Er2015 + 1))) + geom_histogram() + facet_grid(interaction(Troph, Eng)~Precip)
 ggplot(dat, aes(x=(Ho2015 + 1))) + geom_histogram() + facet_grid(interaction(Troph, Eng)~Precip)
 
 
-##### ERODIUM MODELS ####
-## Added in precip as a covariate here and for Hordeum; if keep that need to put it in the projections ##
+# Erodium models ----------------------------------------------------------
+# Might try to add precip as a covariate here and for Hordeum; if do that need to put it in the projections 
+
 m1 <- as.formula(log(Er2016 +1) ~  log(Er2015 +1)*((lambda  )/(1+aiE*log(Er2015 + 1) + aiH*log(Ho2015 + 1))))
 
 treatments <- unique(dat$trt)
@@ -57,7 +59,10 @@ for (i in 1:length(treatments)){
 }
 
 
-### HORDEUM MODEL ###
+# Hordeum models ----------------------------------------------------------
+# Might try to add precip as a covariate here and for Hordeum; if do that need to put it in the projections 
+# NOTE: So little data that the models don't converge!!
+
 m1 <- as.formula(log(Ho2016 +1) ~  log(Ho2015 +1)*((lambda )/(1+aiE*log(Er2015 + 1) + aiH*log(Ho2015 + 1))))
 
 treatments <- unique(dat$trt)
@@ -82,6 +87,11 @@ model.dat <- rbind(ERoutput, HOoutput) %>%
   tbl_df() %>%
   select(estimate, params, treatment, species) %>%
   spread(params, estimate)
+
+
+# Use parameters ----------------------------------------------------------
+# Functions below to run the models under different scenarios; didn't get into running them yet
+# Don't think we should for these data - just not enough
 
 
 ### CREATE A FUNCTION THAT RUNS THE MODEL
