@@ -1,20 +1,20 @@
+### Relate Hordeum per capita seed production to treatments ##
+
 require(gdata)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+library(tidyverse)
 library(minpack.lm)
 
 ## Read in data and select relevant columns #
 
 ## 2015 greenhouse germinants
-stem2016 <- read.xls("Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=2, header=T, na.strings="#N/A!") %>%
+stem2016 <- read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=2, header=T, na.strings="#N/A!") %>%
   tbl_df() %>%
   select(Rep, Site, Troph, Eng, Quadrat, Grass, DTiller, GTiller, ITiller, Height_mean) %>%
   group_by(Site, Troph, Eng, Quadrat, Grass, Rep) %>%
   mutate(stemCount = as.numeric(n())) %>%
   mutate(stemCount = ifelse(is.na(DTiller) & is.na(GTiller) & is.na(ITiller), 0, stemCount))
 
-seedallom2016 <- read.xls("Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=1, header=T, na.strings="#N/A!") %>%
+seedallom2016 <- read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo 2016 Hordeum & Bromus data.xlsx", sheet=1, header=T, na.strings="#N/A!") %>%
   tbl_df() %>%
   select(Hordeum,	Tiller.Old,	Tiller.New.Rep,	Height,	Seed,	Maturity,	Tiller.Immature) 
 
@@ -38,3 +38,4 @@ stem2016_3 <- stem2016_2 %>%
 
 
 ggplot(stem2016_3, aes(x = stemCount, y=seedCount)) + geom_point() + facet_grid(Troph~Eng) + geom_abline(slope = 1)
+
