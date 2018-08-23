@@ -1,22 +1,25 @@
 require(gdata)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+library(tidyverse)
 library(minpack.lm)
 
-cov2015 <-  read.xls("Carrizo pop mod cover data.xlsx", sheet=1, header=T, na.strings="#N/A!") %>%
+
+# Data import and tidying -------------------------------------------------
+
+# read 2015 cover data
+cov2015 <-  read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo pop mod cover data.xlsx", sheet=1, header=T, na.strings="#N/A!") %>%
   tbl_df() %>%
   select(Tag, Pasture, Site.num, Site.ID, Plot, GRK.trt, Precip.trt, HORMUR, EROCIC, Precinct.trt)
 
-
-
-cov2016 <-  read.xls("Carrizo pop mod cover data.xlsx", sheet=2, header=T, na.strings="#N/A!") %>%
+# read 2016 cover data
+cov2016 <-  read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo pop mod cover data.xlsx", sheet=2, header=T, na.strings="#N/A!") %>%
   tbl_df() %>%
   select(Tag, Pasture, Site.num, Site.ID, Plot, GRK.trt, Precip.trt, HORMUR, EROCIC, Precinct.trt)
 
+# rename columns
 names(cov2015)[8:9] = c(  "Ho2015", "Er2015")
 names(cov2016)[8:9] = c(  "Ho2016", "Er2016")
 
+# join and tidy data
 covdat <- left_join(cov2015, cov2016) %>%
   mutate(Eng = ifelse(Precinct.trt == 1, "burrow", "noburrow")) %>%
   mutate(Troph = ifelse(GRK.trt == 1, "GKR", "noGKR")) %>%
@@ -24,23 +27,28 @@ covdat <- left_join(cov2015, cov2016) %>%
   mutate(trt = interaction(Precip, Troph))
 
 
+# Preliminary visuals -----------------------------------------------------
 
-
-ggplot(covdat, aes(x=log(Er2015 + 1), y= log(Er2016 +1),color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
-ggplot(covdat, aes(x=(Er2015 ), y= (Er2016),color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
-
-
-ggplot(covdat, aes(x=log(Ho2015 + 1), y= log(Ho2016 +1), color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
-ggplot(covdat, aes(x=(Ho2015 ), y= (Ho2016), color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) #+ geom_smooth(se=F, method = "lm")
-
-
+# distribution of species
 ggplot(covdat, aes(x=(Er2015 ))) + geom_histogram() + facet_grid(interaction(Troph, Eng)~Precip)
 ggplot(covdat, aes(x=(Ho2015 ))) + geom_histogram() + facet_grid(interaction(Troph, Eng)~Precip)
 
 
+# visualize growth between years by treatments and precip
 
-##### ERODIUM MODELS ####
-## Added in precip as a covariate here and for Hordeum; if keep that need to put it in the projections ##
+# erodium
+ggplot(covdat, aes(x=log(Er2015 + 1), y= log(Er2016 +1),color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
+ggplot(covdat, aes(x=(Er2015 ), y= (Er2016),color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
+
+# hordeum
+ggplot(covdat, aes(x=log(Ho2015 + 1), y= log(Ho2016 +1), color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
+ggplot(covdat, aes(x=(Ho2015 ), y= (Ho2016), color = as.factor(Precip.trt))) + geom_point() + facet_grid(Troph~Eng) #+ geom_smooth(se=F, method = "lm")
+
+
+# Erodium models ----------------------------------------------------------
+
+# Might try to add precip as a covariate here and for Hordeum; if do that need to put it in the projections 
+# Currently just running the model for each scenario (rat/no rat, engineer/no enginner, low/med/high precip)
 m1 <- as.formula(log(Er2016 +1) ~  log(Er2015 +1)*((lambda  )/(1+aiE*log(Er2015 + 1) + aiH*log(Ho2015 + 1))))
 
 treatments <- unique(covdat$trt)
@@ -50,6 +58,7 @@ names(ERoutput) = c("estimate", "se", "t", "p", "params", "treatment", "species"
 for (i in 1:length(treatments)){
   m1out <- nlsLM(m1, start=list(lambda=1, aiE = .01,  aiH=.01), 
                  control=nls.lm.control(maxiter=500), trace=T,
+                 lower = c(0,-3,-3), upper = c(6,3,3),
                  data = subset(covdat, trt == treatments[i] ))
   summary(m1out)
   outreport <- as.data.frame(summary(m1out)$coef[1:3, 1:4])
@@ -61,7 +70,7 @@ for (i in 1:length(treatments)){
 }
 
 
-### HORDEUM MODEL ###
+# Hordeum models ----------------------------------------------------------
 m1 <- as.formula(log(Ho2016 +1) ~  log(Ho2015 +1)*((lambda )/(1+aiE*log(Er2015 + 1) + aiH*log(Ho2015 + 1))))
 
 treatments <- unique(covdat$trt)
@@ -71,6 +80,7 @@ names(HOoutput) = c("estimate", "se", "t", "p", "params", "treatment", "species"
 for (i in 1:length(treatments)){
   m1out <- nlsLM(m1, start=list(lambda=1,  aiE = .01, aiH=.01), 
                  control=nls.lm.control(maxiter=500), trace=T,
+                 lower = c(0,-3,-3), upper = c(6,3,3),
                  data = subset(covdat, trt == treatments[i]))
   outreport <- as.data.frame(summary(m1out)$coef[1:3, 1:4])
   names(outreport) = c("estimate", "se", "t", "p")
@@ -162,6 +172,7 @@ consistent.par <- function(model.dat, j.num, t.num){
 
 
 
+# Misc left over stuff  ----------------------------------------------------------
 
 
 
