@@ -98,6 +98,10 @@ model.dat <- rbind(ERoutput, HOoutput) %>%
   spread(params, estimate)
 
 
+# Use parameters ----------------------------------------------------------
+# Functions below to run the models under different scenarios; didn't get into running them yet
+
+
 ### CREATE A FUNCTION THAT RUNS THE MODEL
 growth = function(N, par.dat, t.num){
   for (i in 1:(t.num-1)){

@@ -1,10 +1,12 @@
 require(gdata)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+library(tidyverse)
 library(minpack.lm)
 
-covall <-  read.xls("Carrizo 2009_2014 cover data.xlsx", sheet=1, header=T, na.strings="#N/A!") %>%
+
+# Data import and tidying ------------------------------------------------------
+
+# long term cover
+covall <-  read.xls("~/Dropbox/Carrizo-pop-models/Data/Carrizo 2009_2014 cover data.xlsx", sheet=1, header=T, na.strings="#N/A!") %>%
   tbl_df() 
 
 covall2 <- covall %>%
@@ -15,6 +17,7 @@ names(covall2) = c("year", "Precip", "prevPrecip", "site", "Troph", "pasture",
                    "block", "sitenum", "plot", 'quadID', "Eng",
                    "erodium", "hordium", "grass", "forb")
 
+# create previous year precip
 covall3 <- covall2 %>%
   mutate(year = year + 1) %>%
   select(-Precip, -prevPrecip)
@@ -31,6 +34,9 @@ covtog <- left_join(covall2, covall3) %>%
   mutate(Trophbin = ifelse(Troph == "present", 1, 0))
 
 
+
+# Preliminary visuals -----------------------------------------------------
+
 ggplot(covtog, aes(x=log(preverodium + 1), y= log(erodium +1),color = as.factor(Precip))) + geom_point() + facet_grid(Troph~Eng)# + geom_smooth(se=F, method = "lm")
 ggplot(covtog, aes(x=(preverodium ), y= (erodium),color = as.factor(prevPrecip))) + geom_point() + facet_grid(Troph~Eng) + geom_smooth(se=F, method = "lm")
 
@@ -39,8 +45,10 @@ ggplot(covtog, aes(x=(prevhordium ), y= (hordium), color = as.factor(prevPrecip)
 
 
 
-##### ERODIUM MODELS ####
-## Added in precip as a covariate here and for Hordeum; if keep that need to put it in the projections ##
+# Erodium models ----------------------------------------------------------
+# Might try to add precip as a covariate here and for Hordeum; if do that need to put it in the projections 
+# Currently just running the model for each scenario (rat/no rat, engineer/no enginner, low/med/high precip)
+
 m1 <- as.formula(log(erodium +1) ~  log(preverodium +1)*((lambda  )/(1+aiE*log(preverodium + 1) + aiH*log(prevhordium + 1))))
 
 treatments <- unique(covtog$trt)
@@ -61,10 +69,13 @@ for (i in 1:length(treatments)){
 }
 
 
-### HORDEUM MODEL ###
+# Hordeum models ----------------------------------------------------------
+# Might try to add precip as a covariate here and for Hordeum; if do that need to put it in the projections 
+# Currently just running the model for each scenario (rat/no rat, engineer/no enginner, low/med/high precip)
+
 m1 <- as.formula(log(hordium +1) ~  log(prevhordium +1)*((lambda )/(1+aiE*log(preverodium + 1) + aiH*log(prevhordium + 1))))
 
-treatments <- unique(covdat$trt)
+treatments <- unique(covtog$trt)
 
 HOoutput <- as.data.frame(matrix(nrow = 0, ncol = 7))
 names(HOoutput) = c("estimate", "se", "t", "p", "params", "treatment", "species")
@@ -87,6 +98,10 @@ model.dat <- rbind(ERoutput, HOoutput) %>%
   select(estimate, params, treatment, species) %>%
   spread(params, estimate)
 
+
+
+# Use parameters ----------------------------------------------------------
+# Functions below to run the models under different scenarios; didn't get into running them yet
 
 ### CREATE A FUNCTION THAT RUNS THE MODEL
 growth = function(N, par.dat, t.num){
